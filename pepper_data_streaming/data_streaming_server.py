@@ -18,6 +18,7 @@ class DataStreamingServer:
         
         
     def handle_client_connection(self, client_socket):
+        print("Server: New client connected with address " + str(client_socket.getpeername()))
         try:
             while self.is_listening:
                 # Wait for data to be available in the queue and send it to the client
@@ -75,5 +76,4 @@ class DataStreamingServer:
             self.data_queue.put(data)  # Signal to close the client connection
             return True
         else:
-            print("Server is not connected, cannot stream data")
             return False

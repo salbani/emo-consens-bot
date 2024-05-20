@@ -28,3 +28,7 @@
 # Ignore system files
 .DS_Store
 Thumbs.db
+
+# Ignore dataset generated files
+/keyword_spotting/speech_commands
+/keyword_spotting/dataset_gen/out-*

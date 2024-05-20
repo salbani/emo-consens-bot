@@ -1,7 +1,27 @@
 import socket
 import struct
+import pyaudio
+import numpy as np
 
 def client():
+    channels = 1
+    sample_rate = 48000  # Hz, adjust this to match your audio stream's sample rate
+    samples = 4096
+    buffer_size = 32768  # This may refer to the byte size of your buffer
+
+    # Initialize PyAudio
+    p = pyaudio.PyAudio()
+
+    # Open stream
+    stream = p.open(format=pyaudio.paInt16,  # This assumes 16-bit samples; adjust as necessary
+                    channels=channels,
+                    rate=sample_rate,
+                    output=True)
+    
+    def play(buffer):
+        stream.write(buffer)
+
+    
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         client_socket.connect(('pepper.local', 40099))
         try:
@@ -26,8 +46,15 @@ def client():
                     buffer += chunk
 
                 print(f"Data received: Channels={nbOfChannels}, Samples={nbrOfSamplesByChannel}, TimeStamps={aTimeStamp}, Buffer Size={len(buffer)}")
+                play(buffer)
 
         except KeyboardInterrupt:
             print("Client shutting down.")
 
-client()
+    stream.stop_stream()
+    stream.close()
+    
+    p.terminate()
+
+if __name__ == "__main__":
+    client()

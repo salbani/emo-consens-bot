@@ -1,9 +1,11 @@
+import queue
 import socket
 import struct
+import threading
 import cv2
 import numpy as np
 
-def client():
+def client(callback_queue: queue.Queue | None):
 
     def display_image(buffer, height, width):
         
@@ -35,7 +37,11 @@ def client():
                         break
                     buffer += chunk
 
-                display_image(buffer, image_height, image_width)
+                if(callback_queue is not None):
+                    buffer2 = buffer[:]
+                    callback_queue.put(lambda: display_image(buffer2, image_height, image_width))
+                else:
+                    display_image(buffer, image_height, image_width)
 
 
         except KeyboardInterrupt:
@@ -43,4 +49,5 @@ def client():
             client_socket.close()
             exit(0)
 
-client()
+if __name__ == "__main__":
+    client(None)

@@ -18,9 +18,9 @@ class AudioTransmissionModule(object):
         self.streaming_server = DataStreamingServer(40099)
         self.audio = app.session.service("ALAudioDevice")
 
-        self.nNbrChannelFlag = 0 # ALL_Channels: 0,  AL::LEFTCHANNEL: 1, AL::RIGHTCHANNEL: 2 AL::FRONTCHANNEL: 3  or AL::REARCHANNEL: 4.
+        self.nNbrChannelFlag = 2 # ALL_Channels: 0,  AL::LEFTCHANNEL: 1, AL::RIGHTCHANNEL: 2 AL::FRONTCHANNEL: 3  or AL::REARCHANNEL: 4.
         self.nDeinterleave = 0
-        self.isProcessingDone = False
+        self.is_running = False
         
     
     def processRemote(self, nbOfChannels, nbrOfSamplesByChannel, aTimeStamp, buffer):
@@ -34,8 +34,6 @@ class AudioTransmissionModule(object):
         | aTimeStamp: list<long> - [[seconds since start], [milliseconds]]
         | buffer: bytearray - the audio buffer
         ''' 
-        print((nbOfChannels), (nbrOfSamplesByChannel),  float (str(aTimeStamp[0]) + "."  + str(aTimeStamp[1])))
-        
         buffer_size = len(buffer)
 
         # Include buffer_size in the header
@@ -46,22 +44,36 @@ class AudioTransmissionModule(object):
         self.streaming_server.stream(header_data + buffer)
 
     def start(self):
+        print("Streaming audio...")
+        self.is_running = True
         self.audio.setClientPreferences(self.moduleName, SAMPLE_RATE, self.nNbrChannelFlag, self.nDeinterleave) # setting same as default generate a bug !?!
         self.audio.subscribe(self.moduleName)
         self.streaming_server.listenAsync()
 
-        try:
-            while self.isProcessingDone == False:
-                time.sleep(1)
-            print("Processing is done")
-        except KeyboardInterrupt:
-            print("Interrupted by user, shutting down")
-            self.stop()
-
-    def stop(self):
+        while self.is_running:
+            time.sleep(1)
         self.audio.unsubscribe(self.moduleName)
         self.streaming_server.close()
+        print("Audio stream stopped")
 
+    def stop(self):
+        self.is_running = False
+
+    @staticmethod
+    def setup(ip, port):
+        try:
+            print("Initializing module " + AudioTransmissionModule.moduleName + " with ip \"" + ip + "\" on port " + str(port))
+            # Initialize qi framework.
+            connection_url = "tcp://" + ip + ":" + str(port)
+            app = qi.Application([AudioTransmissionModule.moduleName, "--qi-url=" + connection_url])
+        except RuntimeError:
+            print ("Can't connect to Naoqi at ip \"" + ip + "\" on port " + str(port) +".\n"
+                    "Please check your script arguments. Run with -h option for help.")
+            sys.exit(1)
+
+        module = AudioTransmissionModule(app)
+        app.session.registerService(module.moduleName, module)
+        return module
 
 
 if __name__ == "__main__":
@@ -80,17 +92,8 @@ if __name__ == "__main__":
     (opts, args_) = parser.parse_args()
     pepper_ip   = opts.ip
     pepper_port = opts.port
-    
-    try:
-        print("Initializing module " + AudioTransmissionModule.moduleName + " with ip \"" + pepper_ip + "\" on port " + str(pepper_port))
-        # Initialize qi framework.
-        connection_url = "tcp://" + pepper_ip + ":" + str(pepper_port)
-        app = qi.Application([AudioTransmissionModule.moduleName, "--qi-url=" + connection_url])
-    except RuntimeError:
-        print ("Can't connect to Naoqi at ip \"" + pepper_ip + "\" on port " + str(pepper_port) +".\n"
-                "Please check your script arguments. Run with -h option for help.")
-        sys.exit(1)
 
-    speechRecognition = AudioTransmissionModule(app)
-    app.session.registerService(speechRecognition.moduleName, speechRecognition)
-    speechRecognition.start()
+    audioTransmissionModule = AudioTransmissionModule.setup(pepper_ip, pepper_port)
+    audioTransmissionModule.start()
+    
+    
