@@ -17,6 +17,9 @@
 /node_modules/
 /vendor/
 
+# Ignore environment files
+.env
+
 # Ignore log files
 *.log
 
