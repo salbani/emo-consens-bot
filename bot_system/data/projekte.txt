@@ -1,0 +1,22 @@
+Projekte:
+			BeIntelliKI für die Mobilität der Zukunft: 
+-Aufbau einer Versuchstrecke im Herzen Berlins
+-Digitalisierung verschiedener Fahrzeuge.
+-Entwicklung eines Betriebssystems für das autonome Fahren.
+-Entwicklung einer Datenplattform
+-Realisierung eines Schaufensters, um KI für autonome Mobilität zu erlebbar zu machen
+			LieferroboterAutonome Logistik in Berlin: 
+-Befähigung digitalisierter Lieferroboter und Transporter für das autonome Fahren und Paketlieferung im urbanen Raum.
+-Tele-Operation von Lieferrobotern testen.
+-Stakeholder die Möglichkeiten der Lieferroboter aufzeigen.
+-Realisierung eines Schaufensters, autonome Logistiklösungen der letzten Meile der Industrie aufzuzeigen.
+Geplante Projekte:
+			ADULAS+Autonome Drohnen-Lebensmittellieferung (Antragsphase): 
+-Dynamische und bedarfsgerechte Lebensmittel-lieferung mittels drohnenunterstützten multimodalen autonomen Transportfahrzeugen.
+-Entwicklung autonomer Fulfillment-Konzepte in der Lebensmittellogistik mit multimodalen Transportkonzepten Pilotierung sowie die -Auswertung hinsichtlich logistischer Potentiale.
+-Schwerpunkt ist die Anwendungsorientierung und Machbarkeit im industriellen Kontext.
+			AutoKIPEntwicklung und Aufbau einer Software-Pipeline: 
+-Entwicklung und Aufbau einer Software-Pipeline zur teilweisen Automatisierung des Kennzeichnungs- und Validierungsprozesses für Trainings- und Testdaten zum autonomen Fahren.
+-Zusammenführung von Fahrzeugdaten mit den sensorischen Daten der Infrastruktur zur Unterstützung des Annotationsprozesses.
+S-ystematische Verbesserung der Qualität von Daten und KI-Modellen für das autonome Fahren.
+-Das Bundesministerium für Digitales und Verkehr fördert eine Vielzahl weiterer Forschungsprojekte zur Entwicklung autonomer Mobilität in Deutschland.
