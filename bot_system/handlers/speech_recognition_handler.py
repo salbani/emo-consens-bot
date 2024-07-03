@@ -15,7 +15,7 @@ openai_client = OpenAI(api_key=OPENAI_API_KEY)
 class SpeechRecognitionHandler(InputStreamHandler[bytes, bytes, bytes, str]):
     def __init__(self, speech_provider: InputStreamProvider[bytes], mock: bool = False):
         self.mock = mock
-        self.vad = webrtcvad.Vad(2)
+        self.vad = webrtcvad.Vad(0)
         self.vad_frame_duration = 30  # ms
         self.vad_frame_len = int(RATE / 1000 * self.vad_frame_duration * FORMAT / 4)
         self.frames: list[bytes] = []

@@ -2,11 +2,14 @@ from threading import Thread
 from typing import Any
 
 import pyaudio
+import csv
 
 from bot_system.chat_agents.chat_gpt_agent import ChatGPTAgent
+from bot_system.chat_server import PepperChatServer
 from bot_system.config import CHANNELS, FORMAT, openai_client
 from bot_system.core import Prompter, PromptInputData
 from bot_system.handlers.emotion_handler import EmotionHandler
+from bot_system.providers.console_text_provider import ConsoleTextProvider
 from bot_system.providers.microphone_provider import MicrophoneProvider
 from bot_system.handlers.speech_recognition_handler import SpeechRecognitionHandler
 from bot_system.providers.webcam_provider import WebcamProvider
@@ -23,19 +26,43 @@ class PepperGPT(Prompter[dict[str, Any], None, None]):
         else:
             self.chat_agent = ChatGPTAgent(no_cost)
 
-        self.voice_handler = SpeechRecognitionHandler(self.voice_provider, mock=no_cost)
+        # self.voice_handler = SpeechRecognitionHandler(self.voice_provider, mock=no_cost)
+        self.voice_handler = ConsoleTextProvider()
         self.emotion_handler = EmotionHandler(self.webcam_provider)
+
+        animation_csv = open("bot_system/animations.csv", "r")
+        animation_dict = csv.DictReader(animation_csv, fieldnames=["animation", "path", "labels"])
+        self.animation_dict = {row["animation"]: (row["path"], row["labels"]) for row in animation_dict}
+
+        self.chat_server = PepperChatServer()
 
         super().__init__(
             text_input=self.voice_handler,
             llm=self.chat_agent,
+            chat_server=self.chat_server,
             inputs=self.emotion_handler,
         )
         print("PepperGPT initialized")
 
+    def _create_animation_list(self) -> str:
+        return "\n".join([f"{key}: {value[1]}" for key, value in self.animation_dict.items()])
+
     def create_prompt(self, input_data):
         self.voice_provider.pause()
         face_results = [face_result.value for face_result in input_data.get_input(self.emotion_handler) if face_result.capture_time > input_data.question.capture_time]
+        primary_emotion, secondary_emotion = self.calculate_emotion_stats(face_results)
+
+        print(f"Question:                   {input_data.question.value}")
+        print(f"Detected primary emotion:   {primary_emotion}")
+        print(f"Detected secondary emotion: {secondary_emotion}")
+        return {
+            "question": input_data.question.value,
+            "animations": self._create_animation_list(),
+            "facial_emotion_primary": f"{primary_emotion[0]} - Sicherheit: {primary_emotion[1]}" if primary_emotion is not None else "None",
+            "facial_emotion_secondary": f"{secondary_emotion[0]} - Sicherheit: {secondary_emotion[1]}" if secondary_emotion is not None else "None",
+        }
+
+    def calculate_emotion_stats(self, face_results):
         primary_emotion: tuple[str, float] | None = None
         secondary_emotion: tuple[str, float] | None = None
         if len(face_results) > 0:
@@ -50,17 +77,9 @@ class PepperGPT(Prompter[dict[str, Any], None, None]):
                 emotion = {key: value / len(face_results) for key, value in emotion.items()}
                 primary_emotion = max(emotion.items(), key=lambda x: x[1])
                 secondary_emotion = max(emotion.items(), key=lambda x: x[1] if x[0] != primary_emotion[0] else 0)
+        return primary_emotion,secondary_emotion
 
-        print(f"Question:                   {input_data.question}")
-        print(f"Detected primary emotion:   {primary_emotion}")
-        print(f"Detected secondary emotion: {secondary_emotion}")
-        return {
-            "question": input_data.question,
-            "facial_emotion_primary": f"{primary_emotion[0]} - Sicherheit: {primary_emotion[1]}" if primary_emotion is not None else "None",
-            "facial_emotion_secondary": f"{secondary_emotion[0]} - Sicherheit: {secondary_emotion[1]}" if secondary_emotion is not None else "None",
-        }
-
-    def handle_llm_response(self, response: str) -> None:
+    def handle_llm_response(self, response):
         print("ChatAgent Answered: ")
         print(response)
         if self.mute:
@@ -79,7 +98,7 @@ class PepperGPT(Prompter[dict[str, Any], None, None]):
                 model="tts-1",
                 voice="fable",
                 speed=1.1,
-                input=response,
+                input=response["answer"],
                 response_format="pcm",
             )
 
@@ -96,7 +115,7 @@ class PepperGPT(Prompter[dict[str, Any], None, None]):
 from deepface.DeepFace import analyze
 
 if __name__ == "__main__":
-    prompter = PepperGPT(mute=True, no_cost=True, data_path="bot_system/data")
+    prompter = PepperGPT(mute=False, no_cost=False, data_path="bot_system/data")
 
     try:
         analyze("bot_system/test_images/img1.jpg", actions=["emotion"], enforce_detection=False)

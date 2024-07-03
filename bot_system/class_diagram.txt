@@ -1,0 +1,53 @@
+@startuml
+!theme plain
+skinparam defaultFontName Courier New
+skinparam defaultFontSize 20
+
+class Input {
+    +source: InputStreamProvider
+    +value: Any
+    +capture_time: float
+}
+
+class InputStreamProvider {
+    +_stream: rx.Subject
+    +is_paused: bool
+    +output(value: Any, capture_time: float | None = None) : None
+    +pause() : None
+    +resume() : None
+    +dispose() : None
+}
+
+class InputStreamHandler {
+    +providers: Tuple[InputStreamProvider]
+    +is_paused: bool
+    +handle(input: Input) : None
+    +dispose() : None
+}
+
+class ChatAgent {
+    +prompt(prompt: dict[str, str]) : str
+}
+
+class PromptInputData {
+    +question: Input
+    +input_buffers: dict[InputStreamProvider, list[Input]]
+    +add_input(provider: InputStreamProvider, value: Input) : None
+    +get_input(provider: InputStreamProvider) : list[Input]
+}
+
+class Prompter {
+    +text_input: InputStreamProvider
+    +llm: ChatAgent
+    +inputs: Tuple[InputStreamProvider]
+    +create_prompt(input_data: PromptInputData) : dict[str, str]
+    +handle_llm_response(response: str) : None
+    +dispose() : None
+}
+
+Input --> InputStreamProvider
+InputStreamHandler --|> InputStreamProvider
+Prompter --> InputStreamProvider
+Prompter --> ChatAgent
+PromptInputData -[hidden]-> Prompter
+@enduml

@@ -1,4 +1,5 @@
 import os
+import re
 from langchain.document_loaders import TextLoader
 from langchain.indexes import VectorstoreIndexCreator
 from langchain.prompts import PromptTemplate
@@ -24,7 +25,8 @@ class ChatGPTAgent(ChatAgent):
 
         promptHist = PromptTemplate.from_template(
             """
-        Du bist ZEKI-GPT, ein Serviceroboter am Zentrum für erlebbare KI (kurz ZEKI). Du beantwortest Gäste Fragen. Antworte mit wenigen Sätzen.
+        Du bist ZEKI-GPT, ein Serviceroboter mit emotionalem Bewusstsein am Zentrum für erlebbare KI (kurz ZEKI). Du beantwortest Gäste Fragen und reagierst auf ihre Emotionen falls nötig.
+        Sollten die Emotionen deines Gesprächspartners nicht mir dem gesagten übereinstimmen, gehe explizit darauf ein.
         -----------
         Kontext über das ZEKI:
         <ctx>
@@ -34,6 +36,11 @@ class ChatGPTAgent(ChatAgent):
         Chatverlauf:
         <ch>
         {chat_history}
+        </ch>
+        -----------
+        Animationen (animation: labels):
+        <ch>
+        {animations}
         </ch>
         -----------
         Aus dem Gesicht des Konversationspartners abgelesene Emotion:
@@ -47,11 +54,19 @@ class ChatGPTAgent(ChatAgent):
         </e>
         -----------
         Frage: {question}
-        Antwort:
+
+        Baue Animationen in deinen Text eine, um die Antwort lebendiger zu gestalten. Nutze dafür folgenden Syntax in deiner Antwort um dich zu steuern:
+        Nutze ...	                    Um ...
+        ^run( animation_full_name )	    Unterbrechen Sie die Rede, führen Sie eine Animation aus und nehmen Sie die Rede wieder auf.
+        ^start( animation_full_name )	Starte eine Animation.
+        ^stop( animation_full_name )	Stope eine vorher gestartete Animation vorzeitig. Nur Sinnvoll wenn eine Neue Animation direkt gestartet werden soll. Alternativ verwende wait um die Animation ausspielen zu lassen bevor eine die nächste gestartet wird.
+        ^wait( animation_full_name )	Unterbrechen Sie die Rede, warten Sie das Ende der Animation ab und nehmen Sie die Rede wieder auf.
+
+        Antworte so menschlich wie möglich und gehe auf die Emotionen des Gesprächspartners ein. Formuliere die Antwort wie einen gesprochenen Dialog, bis auf die animationsanweisungen.
         """
         )
         self.conversationChain = ConversationalRetrievalChain.from_llm(
-            llm=ChatOpenAI(api_key=API_KEY, model="gpt-3.5-turbo"),  # type: ignore
+            llm=ChatOpenAI(api_key=API_KEY, model="gpt-4o"),  # type: ignore
             retriever=vectorstore.as_retriever(),
             combine_docs_chain_kwargs={"prompt": promptHist},
             memory=memory,
@@ -60,10 +75,24 @@ class ChatGPTAgent(ChatAgent):
 
     def prompt(self, prompt):
         if self.mock:
-            return (
-                "Hier wäre die Antwort auf deine Frage, aber ich bin noch nicht fertig. Komm später wieder."
-                + "Aber hier ist ein Witz: Warum hat der Mathematikbuch nicht geschlafen? Weil es viele Probleme hatte."
-            )
+            return {
+                "answer": "Hier wäre die Antwort auf deine Frage, aber ich bin noch nicht fertig. Komm später wieder."
+                + "Aber hier ist ein Witz: Warum hat der Mathematikbuch nicht geschlafen? Weil es viele Probleme hatte.",
+            }
 
         response = self.conversationChain.run(prompt)
-        return response
+        return {
+            "answer": response,
+            "clean_answer": re.sub(r"\^.*?\(.*?\)", "", response),
+        }
+
+        # pattern = re.compile(r'<animation>(.*?)<\/animation>\s*<answer>(.*?)<\/answer>', re.DOTALL)
+        # matches = pattern.search(response)
+        # if not matches:
+        #     return {
+        #         "answer": response,
+        #     }
+        # return {
+        #     "animation": matches.group(1),
+        #     "answer": matches.group(2),
+        # }
