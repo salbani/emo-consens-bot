@@ -1,23 +1,22 @@
-from threading import Thread
+import csv
 from typing import Any
 
-import pyaudio
-import csv
 
 from bot_system.chat_agents.chat_gpt_agent import ChatGPTAgent
 from bot_system.chat_server import PepperChatServer
 from bot_system.config import CHANNELS, FORMAT, openai_client
 from bot_system.core import Prompter, PromptInputData
 from bot_system.handlers.emotion_handler import EmotionHandler
-from bot_system.providers.console_text_provider import ConsoleTextProvider
+from bot_system.handlers.speech_recognition_handler import \
+    SpeechRecognitionHandler
+from bot_system.pepper_controller import PepperController
+from bot_system.providers.console_input_provider import ConsoleInputProvider
 from bot_system.providers.microphone_provider import MicrophoneProvider
-from bot_system.handlers.speech_recognition_handler import SpeechRecognitionHandler
 from bot_system.providers.webcam_provider import WebcamProvider
 
 
 class PepperGPT(Prompter[dict[str, Any], None, None]):
     def __init__(self, no_cost: bool = False, mute: bool = False, data_path: str | None = None):
-        self.mute = mute
         self.voice_provider = MicrophoneProvider()
         self.webcam_provider = WebcamProvider()
 
@@ -26,21 +25,17 @@ class PepperGPT(Prompter[dict[str, Any], None, None]):
         else:
             self.chat_agent = ChatGPTAgent(no_cost)
 
-        # self.voice_handler = SpeechRecognitionHandler(self.voice_provider, mock=no_cost)
-        self.voice_handler = ConsoleTextProvider()
-        self.emotion_handler = EmotionHandler(self.webcam_provider)
-
         animation_csv = open("bot_system/animations.csv", "r")
         animation_dict = csv.DictReader(animation_csv, fieldnames=["animation", "path", "labels"])
         self.animation_dict = {row["animation"]: (row["path"], row["labels"]) for row in animation_dict}
 
-        self.chat_server = PepperChatServer()
-
         super().__init__(
-            text_input=self.voice_handler,
+            # text_input=SpeechRecognitionHandler(self.voice_provider, mock=no_cost),
+            text_input=ConsoleInputProvider(),
             llm=self.chat_agent,
-            chat_server=self.chat_server,
-            inputs=self.emotion_handler,
+            chat_server= PepperChatServer(),
+            robot_controller=PepperController(self.voice_provider, mute),
+            inputs=EmotionHandler(self.webcam_provider),
         )
         print("PepperGPT initialized")
 
@@ -49,7 +44,7 @@ class PepperGPT(Prompter[dict[str, Any], None, None]):
 
     def create_prompt(self, input_data):
         self.voice_provider.pause()
-        face_results = [face_result.value for face_result in input_data.get_input(self.emotion_handler) if face_result.capture_time > input_data.question.capture_time]
+        face_results = [face_result.value for face_result in input_data.get_input(EmotionHandler) if face_result.capture_time > input_data.question.capture_time]
         primary_emotion, secondary_emotion = self.calculate_emotion_stats(face_results)
 
         print(f"Question:                   {input_data.question.value}")
@@ -78,38 +73,7 @@ class PepperGPT(Prompter[dict[str, Any], None, None]):
                 primary_emotion = max(emotion.items(), key=lambda x: x[1])
                 secondary_emotion = max(emotion.items(), key=lambda x: x[1] if x[0] != primary_emotion[0] else 0)
         return primary_emotion,secondary_emotion
-
-    def handle_llm_response(self, response):
-        print("ChatAgent Answered: ")
-        print(response)
-        if self.mute:
-            self.voice_provider.resume()
-            return
-
-        def tts():
-            audio = pyaudio.PyAudio()
-            stream = audio.open(
-                format=FORMAT,
-                channels=CHANNELS,
-                rate=24000,
-                output=True,
-            )
-            x = openai_client.audio.speech.create(
-                model="tts-1",
-                voice="fable",
-                speed=1.1,
-                input=response["answer"],
-                response_format="pcm",
-            )
-
-            y = x.read()
-            stream.write(y[int(24000 / 10) : -int(24000 / 10)])
-            stream.stop_stream()
-            stream.close()
-            audio.terminate()
-            self.voice_provider.resume()
-
-        Thread(target=tts).start()
+        
 
 
 from deepface.DeepFace import analyze

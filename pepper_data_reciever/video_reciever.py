@@ -2,52 +2,67 @@ import queue
 import socket
 import struct
 import threading
+from typing import Callable
 import cv2
+from cv2.typing import MatLike
 import numpy as np
 
-def client(callback_queue: queue.Queue | None):
+class VideoReceiver:
+    def __init__(self, play_video: bool = False):
+        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.is_running = False
+        self.play_video = play_video
 
-    def display_image(buffer, height, width):
-        
-        image = np.frombuffer(buffer, dtype=np.uint8).reshape((height, width, 3))
-        
-        # Display the image frame
-        cv2.imshow('Pepper Video Stream', image)
+    def play(self, buffer: MatLike, height: int, width: int):
+        cv2.imshow('Pepper Video Stream', buffer)
         cv2.waitKey(1)
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
-        client_socket.connect(('pepper.local', 40098))
+    def start_async(self, receive_data: Callable[[MatLike, int, int], None]):
+        threading.Thread(target=self.start, args=(receive_data,)).start()
+    
+    def start(self, receive_data: Callable[[MatLike, int, int], None]):
         try:
-            while True:
-                header_format = '!I I I'  # Adjusted to include buffer_size
+            self.client_socket.connect(("pepper.local", 40098))
+            self.is_running = True
+            while self.is_running:
+                header_format = "!I I I"
                 header_size = struct.calcsize(header_format)
-                header_data = client_socket.recv(header_size)
+                header_data = self.client_socket.recv(header_size)
                 if not header_data:
-                    print("Server closed the connection.")
+                    print("VideoReceiver: Server closed the connection.")
                     break
 
                 image_width, image_height, buffer_size = struct.unpack(header_format, header_data)
 
-                # Now receive the buffer based on the received size
-                buffer = b''
+                buffer = b""
                 while len(buffer) < buffer_size:
-                    chunk = client_socket.recv(buffer_size - len(buffer))
+                    chunk = self.client_socket.recv(buffer_size - len(buffer))
                     if not chunk:
-                        print("Failed to receive all data.")
+                        print("VideoReceiver: Failed to receive all data.")
                         break
                     buffer += chunk
 
-                if(callback_queue is not None):
-                    buffer2 = buffer[:]
-                    callback_queue.put(lambda: display_image(buffer2, image_height, image_width))
-                else:
-                    display_image(buffer, image_height, image_width)
 
+                image = np.frombuffer(buffer, dtype=np.uint8).reshape((image_height, image_width, 3))
+                receive_data(image, image_height, image_width)
+                if self.play_video:
+                    self.play(image, image_height, image_width)
+        finally:
+            self.is_running = False
 
-        except KeyboardInterrupt:
-            print("Client shutting down.")
-            client_socket.close()
-            exit(0)
+    def dispose(self):
+        self.is_running = False
+        self.client_socket.close()
 
 if __name__ == "__main__":
-    client(None)
+    receiver = VideoReceiver(play_video=True)
+    receiver.start_async(lambda buffer, height, width: print(f"Received image: {height}x{width}"))
+
+    try:
+        while True:
+            pass
+    except KeyboardInterrupt:
+        receiver.dispose()
+        cv2.destroyAllWindows()
+        exit(0)
+        print("VideoReceiver stopped.")

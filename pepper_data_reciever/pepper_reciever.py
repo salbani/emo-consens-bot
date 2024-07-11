@@ -8,8 +8,8 @@ import queue
 if __name__ == "__main__":
     callback_queue = queue.Queue(1)
 
-    video_thread = threading.Thread(target=vr.client, args=[callback_queue])
-    audio_thread = threading.Thread(target=ar.client)
+    video_thread = threading.Thread(target=vr.VideoReceiver, args=[callback_queue])
+    audio_thread = threading.Thread(target=ar.AudioReceiver)
 
     video_thread.start()
     audio_thread.start()

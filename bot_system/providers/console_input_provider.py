@@ -4,7 +4,7 @@ import time
 from bot_system.core import InputStreamProvider
 
 
-class ConsoleTextProvider(InputStreamProvider[str]):
+class ConsoleInputProvider(InputStreamProvider[str]):
 
     def __init__(self):
         super().__init__()

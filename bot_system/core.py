@@ -107,13 +107,13 @@ class PromptInputData(Generic[P1, P2, P3]):
         self.input_buffers[provider].append(value)
 
     @overload
-    def get_input(self, provider: InputStreamProvider[P1]) -> list[Input[P1]]: ...
+    def get_input(self, provider: type[InputStreamProvider[P1]]) -> list[Input[P1]]: ...
     @overload
-    def get_input(self, provider: InputStreamProvider[P2]) -> list[Input[P2]]: ...
+    def get_input(self, provider: type[InputStreamProvider[P2]]) -> list[Input[P2]]: ...
     @overload
-    def get_input(self, provider: InputStreamProvider[P3]) -> list[Input[P3]]: ...
+    def get_input(self, provider: type[InputStreamProvider[P3]]) -> list[Input[P3]]: ...
 
-    def get_input(self, provider: InputStreamProvider[P1] | InputStreamProvider[P2] | InputStreamProvider[P3]) -> list[Input[P1]] | list[Input[P2]] | list[Input[P3]]:
+    def get_input(self, provider: type[InputStreamProvider[P1]] | type[InputStreamProvider[P2]] | type[InputStreamProvider[P3]]) -> list[Input[P1]] | list[Input[P2]] | list[Input[P3]]:
         if provider in self.input_buffers:
             return self.input_buffers[provider]
         return []
@@ -153,6 +153,15 @@ class ChatServer:
         self.message_stream.on_completed()
 
 
+class RobotController:
+
+    def __init__(self, robot: Any):
+        self.robot = robot
+
+    def execute_bot_response(self, response: dict[str, Any]) -> None:
+        raise NotImplementedError
+
+
 class Prompter(Generic[P1, P2, P3]):
 
     @overload
@@ -161,6 +170,7 @@ class Prompter(Generic[P1, P2, P3]):
         text_input: InputStreamProvider[str],
         llm: ChatAgent,
         chat_server: ChatServer,
+        robot_controller: RobotController,
         inputs: InputStreamProvider[P1],
     ): ...
 
@@ -170,6 +180,7 @@ class Prompter(Generic[P1, P2, P3]):
         text_input: InputStreamProvider[str],
         llm: ChatAgent,
         chat_server: ChatServer,
+        robot_controller: RobotController,
         inputs: tuple[InputStreamProvider[P1], InputStreamProvider[P2]],
     ): ...
 
@@ -179,6 +190,7 @@ class Prompter(Generic[P1, P2, P3]):
         text_input: InputStreamProvider[str],
         llm: ChatAgent,
         chat_server: ChatServer,
+        robot_controller: RobotController,
         inputs: tuple[InputStreamProvider[P1], InputStreamProvider[P2], InputStreamProvider[P3]],
     ): ...
 
@@ -187,6 +199,7 @@ class Prompter(Generic[P1, P2, P3]):
         text_input: InputStreamProvider[str],
         llm: ChatAgent,
         chat_server: ChatServer,
+        robot_controller: RobotController,
         inputs: (
             None
             | InputStreamProvider[P1]
@@ -203,6 +216,7 @@ class Prompter(Generic[P1, P2, P3]):
         self.inputs = inputs
         self.text_input = text_input
         self.chat_server = chat_server
+        self.robot_controller = robot_controller
 
         text_input._stream.subscribe(lambda text: chat_server.add_message(text.value, "You"))
 
@@ -218,20 +232,20 @@ class Prompter(Generic[P1, P2, P3]):
             prompt_stream = rx.merge(*input_streams).pipe(
                 ops.buffer(text_input_stream),
                 ops.with_latest_from(text_input_stream),
-                ops.map(lambda x: self._create_prompt_input_data(x[1], x[0])),
+                ops.map(lambda x: self.__create_prompt_input_data(x[1], x[0])),
             )
         else:
             prompt_stream = text_input_stream.pipe(
-                ops.map(lambda x: self._create_prompt_input_data(x, [])),
+                ops.map(lambda x: self.__create_prompt_input_data(x, [])),
             )
 
 
         prompt_stream.pipe(
             ops.map(self.create_prompt),
             ops.map(self.llm.prompt),
-        ).subscribe(self.__handle_llm_response__)
+        ).subscribe(self.__handle_llm_response)
 
-    def _create_prompt_input_data(self, question: Input[str], input_buffer: list[tuple[InputStreamProvider, Input[Any]]]) -> PromptInputData[P1, P2, P3]:
+    def __create_prompt_input_data(self, question: Input[str], input_buffer: list[tuple[InputStreamProvider, Input[Any]]]) -> PromptInputData[P1, P2, P3]:
         data = PromptInputData(question)
         for provider, input in input_buffer:
             data.add_input(provider, input)
@@ -240,28 +254,17 @@ class Prompter(Generic[P1, P2, P3]):
     def create_prompt(self, input_data: PromptInputData[P1, P2, P3]) -> dict[str, str]:
         raise NotImplementedError("create_prompt method must be implemented")
     
-    def __handle_llm_response__(self, response: dict[str, Any]) -> None:
+    def __handle_llm_response(self, response: dict[str, Any]) -> None:
         answer = response.get("clean_answer") or response.get("answer", "There was a problem with the answer!")
         self.chat_server.add_message(answer, "ZeKI GPT")
-        self.handle_llm_response(response)
+        response = self.transform_llm_response(response)
+        self.robot_controller.execute_bot_response(response)
 
-    def handle_llm_response(self, response: dict[str, Any]) -> None:
-        raise NotImplementedError("handle_llm_response method must be implemented")
+    def transform_llm_response(self, response: dict[str, Any]) -> dict[str, Any]:
+        return response
 
     def dispose(self) -> None:
         self.text_input.dispose()
         if self.inputs is not None:
             for input in self.inputs:
                 input.dispose()
-
-
-class RobotController:
-
-    def __init__(self, robot: Any):
-        self.robot = robot
-
-    def say(self, text: str) -> None:
-        raise NotImplementedError
-
-    def animate(self, animation: str) -> None:
-        raise NotImplementedError
