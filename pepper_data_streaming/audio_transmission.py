@@ -6,7 +6,7 @@ from data_streaming_server import DataStreamingServer
 # from naoqi import ALProxy, ALModule, ALBroker
 import qi
 
-SAMPLE_RATE = 48000         # Hz, be careful changing this, both google and Naoqi have requirements!
+SAMPLE_RATE = 16000         # Hz, be careful changing this, both google and Naoqi have requirements!
 
 class AudioTransmissionModule(object):
     moduleName = "AudioTransmission"
@@ -18,7 +18,7 @@ class AudioTransmissionModule(object):
         self.streaming_server = DataStreamingServer(40099)
         self.audio = app.session.service("ALAudioDevice")
 
-        self.nNbrChannelFlag = 2 # ALL_Channels: 0,  AL::LEFTCHANNEL: 1, AL::RIGHTCHANNEL: 2 AL::FRONTCHANNEL: 3  or AL::REARCHANNEL: 4.
+        self.nNbrChannelFlag = 3 # ALL_Channels: 0,  AL::LEFTCHANNEL: 1, AL::RIGHTCHANNEL: 2 AL::FRONTCHANNEL: 3  or AL::REARCHANNEL: 4.
         self.nDeinterleave = 0
         self.is_running = False
         

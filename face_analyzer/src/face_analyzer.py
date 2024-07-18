@@ -1,4 +1,5 @@
 from collections import deque
+from dataclasses import dataclass
 
 import cv2
 import numpy as np
@@ -10,13 +11,18 @@ from face_analyzer.src.math import calc_angle
 from face_analyzer.src.mouth_angle_buffer import MouthAngleBuffer
 from face_analyzer.src.world_projection import WorldProjection
 
+@dataclass
+class FaceAnalysisResult:
+    angle_radians: np.float32
+    mouth_angle_fluctuation: np.float32
+
 
 class FaceAnalyzer:
     def __init__(self):
         self.frame_shape: tuple[int, int] = (0, 0)
         self.analyzed_frame_pos: tuple[int, int] = (0, 0)
         self.analyzed_frame_shape: tuple[int, int] = (0, 0)
-        self.mouth_angle_buffer = MouthAngleBuffer(25)
+        self.mouth_angle_buffer = MouthAngleBuffer(10)
         self.calibration: CameraCalibration | None = None
 
     def relative_pos(self, percent_coords):
@@ -113,7 +119,7 @@ class FaceAnalyzer:
 
             cv2.putText(frame, f"Angle: {angle_radians:.2f} rad", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
-        return angle_radians, mouth_angle_fluctuation
+        return FaceAnalysisResult(angle_radians, mouth_angle_fluctuation)
 
     def draw_mouth_debug_info(self, frame: MatLike, mouth_area, mouth_area_fluctuation):
         cv2.putText(frame, f"Mouth Angle: {mouth_area:.2f}", (50, 250), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)

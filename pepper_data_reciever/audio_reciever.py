@@ -14,9 +14,8 @@ class AudioReceiver:
         self.play_audio = play_audio
         if play_audio:
             channels = 1
-            sample_rate = 48000  # Hz, adjust this to match your audio stream's sample rate
+            sample_rate = 16000  # Hz, adjust this to match your audio stream's sample rate
             samples = 4096
-            buffer_size = 32768  # This may refer to the byte size of your buffer
 
             self.p = pyaudio.PyAudio()
             self.stream = self.p.open(format=pyaudio.paInt16, channels=channels, rate=sample_rate, output=True)  # This assumes 16-bit samples; adjust as necessary
@@ -69,7 +68,7 @@ if __name__ == "__main__":
     receiver = AudioReceiver(True)
     receiver.start_async(
         lambda buffer, nbOfChannels, nbrOfSamplesByChannel, buffer_size, aTimeStamp: print(
-            f"Received audio data: Channels={nbOfChannels}, Samples={nbrOfSamplesByChannel}, TimeStamps={aTimeStamp}, Buffer Size={buffer_size}"
+            f"Received audio data: Channels={nbOfChannels}, Samples={nbrOfSamplesByChannel}, TimeStamps={aTimeStamp}, Buffer Size={buffer_size} | {len(buffer)}"
         )
     )
 

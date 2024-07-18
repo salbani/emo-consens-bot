@@ -18,7 +18,7 @@ class VideoTransmissionModule(object):
         self.nameId = self.video_service.subscribeCamera(
             "python_GVM",
             vision_definitions.kTopCamera,
-            vision_definitions.kVGA,
+            vision_definitions.kQVGA,
             vision_definitions.kBGRColorSpace,
             20
         )

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #94e5fe;
+        background: linear-gradient(135deg, #94e5fe 20%, #8de599 100%);
+      }
+      * {
+        font-family: "Poppins", sans-serif;
+        box-sizing: border-box;
+      }
+      .chat-container {
+        display: flex;
+        flex-direction: column;
+        width: 90%;
+        height: 90%;
+        max-width: 900px;
+        max-height: 800px;
+        background-color: #f9f9f9;
+        border-radius: 20px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        border: 10px solid #ffffff47;
+        -webkit-background-clip: padding-box;
+        background-clip: padding-box;
+        transition: 0.2s ease-in;
+      }
+      .chat-container.eye_contact {
+        border: 15px solid #ff96ef8c;
+      }
+      .chat-container.listening {
+        border: 10px solid #96ffbc8c;
+      }
+      .chat-header {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #ffffff;
+        color: #303030;
+        padding: 16px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 25px;
+        border-bottom: 1px solid #ececec;
+      }
+      .intent_status {
+        height: 10px;
+        width: 10px;
+        border-radius: 50%;
+        margin: 0 5px;
+      }
+      .intent_status.is_moving_mouth.visible {
+        background-color: #ff96ef;
+      }
+      .intent_status.has_eye_contact.visible {
+        background-color: #96ffbc;
+      }
+      .intent_status.is_speech.visible {
+        background-color: #96e8ff;
+      }
+      .elevated {
+        box-shadow: 3px 5px 15px 0px rgba(0, 0, 0, 0.1);
+      }
+      .chat-box {
+        flex: 1;
+        padding: 16px 40px;
+        overflow-y: auto;
+      }
+      .message {
+        display: flex;
+        flex-direction: column;
+        margin: 5px 0;
+      }
+      .message.user {
+        align-items: end;
+      }
+      .message.server {
+        align-items: start;
+      }
+      .message .text {
+        margin: 0;
+        max-width: 90%;
+        padding: 8px 15px;
+        border-radius: 20px;
+        border: 1px solid #ececec;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        color: #595959;
+      }
+      .message.user .text {
+        background-color: #8de599;
+        align-self: flex-end;
+        border-bottom-right-radius: 0 !important;
+      }
+      .message.server .text {
+        background-color: #94e5fe;
+        align-self: flex-start;
+        border-bottom-left-radius: 0 !important;
+      }
+      .sender {
+        margin: 0 5px;
+        font-size: 12px;
+      }
+      .chat-input {
+        display: flex;
+        padding: 5px;
+        background-color: #fff;
+        border: 1px solid #ececec;
+        border-radius: 17px;
+        margin: 20px 40px;
+      }
+      .chat-input input {
+        flex: 1;
+        padding: 8px;
+        border: none;
+        margin: 0 8px;
+        outline: none;
+      }
+      .chat-input button {
+        padding: 8px 16px;
+        background-color: transparent;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .send-icon {
+        height: 25px;
+        width: 25px;
+        fill: #8de599;
+      }
+      .loading {
+        display: none;
+      }
+      .loading.visible.visible {
+        display: flex;
+      }
+      .center-content {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .typing {
+        display: flex;
+        align-items: center;
+        padding: 8px;
+        border-radius: 4px;
+        background-color: #e1e1e1;
+        align-self: flex-start;
+      }
+      .dot {
+        height: 6px;
+        width: 6px;
+        margin: 0 2px;
+        background-color: #595959;
+        border-radius: 50%;
+        display: inline-block;
+        animation: dotPulse 1s infinite ease-in-out;
+      }
+      .dot:nth-child(1) {
+        animation-delay: 0s;
+      }
+      .dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      @keyframes dotPulse {
+        0% {
+          opacity: 0.2;
+        }
+        20% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0.2;
+        }
+      }
+    </style>
+  </head>
+  <body class="center-content">
+    <div id="container" class="chat-container">
+      <div class="chat-header">
+        <div>ZeKI GPT</div>
+        <div id="is_moving_mouth_status" class="intent_status is_moving_mouth"></div>
+        <div id="has_eye_contact_status" class="intent_status has_eye_contact"></div>
+        <div id="is_speech_status" class="intent_status is_speech"></div>
+    </div>
+      <div class="chat-box" id="chat-box">
+        {% for msg in messages %}
+        <div
+          class="{{ 'message user' if msg.sender == 'You' else 'message server' }}"
+        >
+          <p class="text elevated">{{ msg.message }}</p>
+          <p class="sender">{{ msg.sender }}</p>
+        </div>
+        {% endfor %}
+        <div id="loading" class="message server loading">
+          <p class="text elevated">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </p>
+        </div>
+      </div>
+      <div class="chat-input elevated">
+        <input type="text" id="message-input" placeholder="Type a message..." />
+        <button
+          class="center-content"
+          id="message-submit"
+          onclick="sendMessage()"
+        >
+          <svg
+            class="send-icon"
+            xmlns="http://www.w3.org/2000/svg"
+            height="24px"
+            viewBox="0 -960 960 960"
+            width="24px"
+            fill="#e8eaed"
+          >
+            <path
+              d="M120-160v-640l760 320-760 320Zm80-120 474-200-474-200v140l240 60-240 60v140Zm0 0v-400 400Z"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <script>
+      var socket = io();
+      var loading = document.getElementById("loading");
+      var input = document.getElementById("message-input");
+      var chatBox = document.getElementById("chat-box");
+      var container = document.getElementById("container");
+
+      var is_moving_mouth_status = document.getElementById("is_moving_mouth_status");
+      var has_eye_contact_status = document.getElementById("has_eye_contact_status");
+      var is_speech_status = document.getElementById("is_speech_status");
+
+      input.addEventListener("keypress", function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          document.getElementById("message-submit").click();
+        }
+      });
+
+      function update_status_visiblity(status, visible) {
+        if (visible) {
+          status.classList.add("visible");
+        } else {
+          status.classList.remove("visible");
+        }
+      }
+
+      socket.on("intent", function (data) {
+        var is_moving_mouth = data.is_moving_mouth;
+        var has_eye_contact = data.has_eye_contact;
+        var is_speech = data.is_speech;
+
+        update_status_visiblity(is_moving_mouth_status, is_moving_mouth);
+        update_status_visiblity(has_eye_contact_status, has_eye_contact);
+        update_status_visiblity(is_speech_status, is_speech);
+
+        if (has_eye_contact) {
+          if (is_speech && is_moving_mouth) {
+            container.classList.add("listening");
+          } else {
+            container.classList.add("eye_contact");
+          }
+        } else {
+          container.classList.remove("eye_contact");
+          container.classList.remove("listening");
+        }
+      });
+
+      socket.on("message", function (data) {
+        var messageElement = document.createElement("div");
+        messageElement.className =
+          data.sender === "You" ? "user message" : "server message";
+        messageElement.innerHTML =
+          '<p class="text elevated">' +
+          data.message +
+          "</p>" +
+          '<p class="sender">' +
+          data.sender +
+          "</p>";
+        chatBox.insertBefore(messageElement, loading);
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        if (data.sender == "You") {
+          loading.classList.add("visible");
+        } else {
+          loading.classList.remove("visible");
+        }
+      });
+
+      function sendMessage() {
+        var input = document.getElementById("message-input");
+        var message = input.value;
+        if (message.trim()) {
+          socket.emit("send_message", { message: message, sender: "You" });
+          input.value = "";
+        }
+      }
+
+      setTimeout(function () {
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }, 500);
+    </script>
+  </body>
+</html>

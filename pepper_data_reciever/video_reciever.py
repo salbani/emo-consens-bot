@@ -25,14 +25,20 @@ class VideoReceiver:
             self.client_socket.connect(("pepper.local", 40098))
             self.is_running = True
             while self.is_running:
-                header_format = "!I I I"
-                header_size = struct.calcsize(header_format)
-                header_data = self.client_socket.recv(header_size)
-                if not header_data:
-                    print("VideoReceiver: Server closed the connection.")
-                    break
+                header_data = None
+                try:
+                    header_format = "!I I I"
+                    header_size = struct.calcsize(header_format)
+                    header_data = self.client_socket.recv(header_size)
+                    if not header_data:
+                        print("VideoReceiver: Server closed the connection.")
+                        break
 
-                image_width, image_height, buffer_size = struct.unpack(header_format, header_data)
+                    image_width, image_height, buffer_size = struct.unpack(header_format, header_data)
+                except struct.error as e:
+                    print(f"VideoReceiver: Failed to unpack header data.\n{e}")
+                    print(f"buffer_size: {len(header_data) if header_data else 0}")
+                    continue
 
                 buffer = b""
                 while len(buffer) < buffer_size:
@@ -43,10 +49,13 @@ class VideoReceiver:
                     buffer += chunk
 
 
-                image = np.frombuffer(buffer, dtype=np.uint8).reshape((image_height, image_width, 3))
+                image = np.frombuffer(bytearray(buffer), dtype=np.uint8).reshape((image_height, image_width, 3))
                 receive_data(image, image_height, image_width)
                 if self.play_video:
                     self.play(image, image_height, image_width)
+
+        except KeyboardInterrupt:
+            print("VideoReceiver: Stopping...")
         finally:
             self.is_running = False
 
@@ -56,7 +65,7 @@ class VideoReceiver:
 
 if __name__ == "__main__":
     receiver = VideoReceiver(play_video=True)
-    receiver.start_async(lambda buffer, height, width: print(f"Received image: {height}x{width}"))
+    receiver.start(lambda buffer, height, width: print(f"Received image: {height}x{width}"))
 
     try:
         while True:
@@ -64,5 +73,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         receiver.dispose()
         cv2.destroyAllWindows()
-        exit(0)
         print("VideoReceiver stopped.")
+        exit(0)
