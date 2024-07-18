@@ -1,0 +1,1 @@
+Run the bot with python bot_system/main.py
